@@ -126,25 +126,33 @@
                         const workbook = XLSX.read(data, { type: 'array' });
                         const sheet = workbook.Sheets[workbook.SheetNames[0]];
                         
-                        // Convert to array format
-                        const rows = [['Day', 'Job Number', 'Task', 'Description', 'Time']];
+                        const rows = [['Day', 'Job Number', 'Task', 'Description', 'Time', 'Sprint Total']];
                         const jobs = extractJobs(sheet);
                         
-                        let startRow = 2; // First data row after header
+                        let startRow = 2;
+                        let currentRow = 1; // Initialize currentRow
+                        let jobStartRows = {};
                         
                         for (let day = 1; day <= 10; day++) {
-                            // Add job rows
                             jobs.forEach(job => {
+                                if (!jobStartRows[job.number]) {
+                                    jobStartRows[job.number] = currentRow + 1;
+                                }
                                 rows.push([
                                     `Day ${day}`,
                                     job.number,
                                     job.task,
                                     '',
-                                    0
+                                    0,
+                                    {   
+                                        t: 'n',
+                                        f: `SUMIF(B:B,${job.number},E:E)`
+                                    }
                                 ]);
+                                currentRow++;
                             });
                             
-                            // Add daily total row with Excel formula
+                            // Daily total row
                             rows.push([
                                 `Day ${day} Total`,
                                 '',
@@ -153,18 +161,17 @@
                                 {
                                     t: 'n',
                                     f: `SUM(E${startRow}:E${startRow + jobs.length - 1})`
-                                }
+                                },
+                                ''
                             ]);
                             
-                            // Add empty row (except after last day)
                             if (day < 10) {
-                                rows.push(['', '', '', '', '']);
+                                rows.push(['', '', '', '', '', '']);
                             }
                             
-                            // Update start row for next day's formula
-                            startRow += jobs.length + 2; // jobs + total row + empty row
+                            startRow += jobs.length + 2;
+                            currentRow += 2; // Increment for total row and empty row
                         }
-
                         createWorkbook(rows);
                         
                     } catch (error) {
@@ -217,10 +224,9 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(rows);
                 
-                ws['!cols'] = [{width: 12}, {width: 15}, {width: 40}, {width: 50}, {width: 10}];
+                ws['!cols'] = [{width: 12}, {width: 15}, {width: 40}, {width: 50}, {width: 10}, {width: 12}];
+                ws['!autofilter'] = { ref: 'A1:F1' };
                 
-                ws['!autofilter'] = { ref: 'A1:E1' }; // Add filter to header row
-
                 XLSX.utils.book_append_sheet(wb, ws, 'Time Registration');
                 XLSX.writeFile(wb, 'time_registration.xlsx');
             }
